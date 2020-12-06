@@ -20,25 +20,19 @@ defmodule Day6 do
   end
 
   def solve_part_1(input) do
-    input
-    |> parse()
-    |> Enum.reduce(0, fn group, total ->
-      group
-      |> Enum.join()
-      |> String.graphemes()
-      |> Enum.uniq()
-      |> length()
-      |> Kernel.+(total)
-    end)
+    do_solve(input, &MapSet.union/2)
   end
 
   def solve_part_2(input) do
+    do_solve(input, &MapSet.intersection/2)
+  end
+
+  def do_solve(input, reducer) do
     input
     |> parse()
     |> Enum.reduce(0, fn group, total ->
       group
-      |> Enum.map(fn g -> g |> String.graphemes() |> MapSet.new() end)
-      |> Enum.reduce(&MapSet.intersection/2)
+      |> Enum.reduce(&reducer.(&1, &2))
       |> MapSet.size()
       |> Kernel.+(total)
     end)
@@ -47,7 +41,10 @@ defmodule Day6 do
   def parse(input) do
     input
     |> String.split("\n\n")
-    |> Enum.map(&String.split(&1, "\n", trim: true))
+    |> Enum.map(fn line ->
+      line
+      |> String.split("\n", trim: true)
+      |> Enum.map(fn l -> l |> String.split("", trim: true) |> MapSet.new() end)
+    end)
   end
 end
-
