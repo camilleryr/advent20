@@ -29,22 +29,33 @@ defmodule Day6 do
 
   def do_solve(input, reducer) do
     input
-    |> parse()
-    |> Enum.reduce(0, fn group, total ->
-      group
-      |> Enum.reduce(&reducer.(&1, &2))
+    |> String.split("\n\n")
+    |> get_total(reducer)
+  end
+
+  def get_total(enum, reducer) do
+    enum
+    |> Enum.reduce(0, fn line, total ->
+      line
+      |> String.split("\n", trim: true)
+      |> reduce(reducer)
       |> MapSet.size()
       |> Kernel.+(total)
     end)
   end
 
-  def parse(input) do
-    input
-    |> String.split("\n\n")
-    |> Enum.map(fn line ->
-      line
-      |> String.split("\n", trim: true)
-      |> Enum.map(fn l -> l |> String.split("", trim: true) |> MapSet.new() end)
+  def reduce(enum, reducer) do
+    enum
+    |> Enum.reduce(nil, fn l, acc ->
+      new =
+        l
+        |> String.split("", trim: true)
+        |> MapSet.new()
+
+      case acc do
+        %MapSet{} -> reducer.(acc, new)
+        nil -> new
+      end
     end)
   end
 end
