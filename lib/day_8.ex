@@ -40,7 +40,19 @@ defmodule Day8 do
   def solve_part_2(input) do
     instructions = parse(input)
 
-    do_solve_part_2(instructions, :array.size(instructions) - 1)
+    visited_instructions = do_solve_part_2(instructions, {0, 0}, MapSet.new([0]))
+
+    visited_instructions
+    |> MapSet.to_list()
+    |> Enum.sort()
+    |> Enum.find_value(fn position_to_change ->
+      instructions
+      |> do_solve_part_2(position_to_change)
+      |> case do
+        %MapSet{} -> nil
+        value -> value
+      end
+    end)
   end
 
   def do_solve_part_2(original_instructions, position_to_change) do
@@ -54,10 +66,6 @@ defmodule Day8 do
         position_to_change
         |> :array.set({flip(inst), arg}, original_instructions)
         |> do_solve_part_2({0, 0}, MapSet.new([0]))
-    end
-    |> case do
-      value when not is_nil(value) -> value
-      nil -> do_solve_part_2(original_instructions, position_to_change - 1)
     end
   end
 
@@ -73,7 +81,7 @@ defmodule Day8 do
         new_acc
 
       MapSet.member?(history, new_position) ->
-        nil
+        history
 
       true ->
         do_solve_part_2(instructions, new_buffer, MapSet.put(history, new_position))
