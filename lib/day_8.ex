@@ -38,53 +38,41 @@ defmodule Day8 do
   end
 
   def solve_part_2(input) do
-    instructions = parse(input)
+    input
+    |> parse()
+    |> do_solve_part_2()
+  end
 
-    visited_instructions = do_solve_part_2(instructions, {0, 0}, MapSet.new([0]))
+  def do_solve_part_2(
+        instructions,
+        {current_position, _accumulator} = buffer \\ {0, 0},
+        history \\ MapSet.new([0]),
+        can_switch \\ true
+      ) do
+    {op, arg} = instruction = :array.get(current_position, instructions)
 
-    visited_instructions
-    |> MapSet.to_list()
-    |> Enum.sort()
-    |> Enum.find_value(fn position_to_change ->
-      instructions
-      |> do_solve_part_2(position_to_change)
-      |> case do
-        %MapSet{} -> nil
-        value -> value
+    val =
+      if can_switch and Enum.member?([:jmp, :nop], op) do
+        current_position
+        |> :array.set({flip(op), arg}, instructions)
+        |> do_solve_part_2(buffer, history, false)
       end
-    end)
-  end
 
-  def do_solve_part_2(original_instructions, position_to_change) do
-    position_to_change
-    |> :array.get(original_instructions)
-    |> case do
-      {:acc, _arg} ->
-        nil
+    if val do
+      val
+    else
+      {new_position, new_acc} = new_buffer = execute_instruction(instruction, buffer)
 
-      {inst, arg} ->
-        position_to_change
-        |> :array.set({flip(inst), arg}, original_instructions)
-        |> do_solve_part_2({0, 0}, MapSet.new([0]))
-    end
-  end
+      cond do
+        new_position >= :array.size(instructions) ->
+          new_acc
 
-  def do_solve_part_2(instructions, {current_position, _accumulator} = buffer, history) do
-    {new_position, new_acc} =
-      new_buffer =
-      current_position
-      |> :array.get(instructions)
-      |> execute_instruction(buffer)
+        MapSet.member?(history, new_position) ->
+          nil
 
-    cond do
-      new_position >= :array.size(instructions) ->
-        new_acc
-
-      MapSet.member?(history, new_position) ->
-        history
-
-      true ->
-        do_solve_part_2(instructions, new_buffer, MapSet.put(history, new_position))
+        true ->
+          do_solve_part_2(instructions, new_buffer, MapSet.put(history, new_position), can_switch)
+      end
     end
   end
 
