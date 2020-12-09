@@ -46,7 +46,6 @@ defmodule Day8 do
   def do_solve_part_2(
         instructions,
         {current_position, _accumulator} = buffer \\ {0, 0},
-        history \\ MapSet.new([0]),
         full_history \\ MapSet.new([0]),
         can_switch \\ true
       ) do
@@ -56,7 +55,7 @@ defmodule Day8 do
       if can_switch and Enum.member?([:jmp, :nop], op) do
         current_position
         |> :array.set({flip(op), arg}, instructions)
-        |> do_solve_part_2(buffer, history, full_history, false)
+        |> do_solve_part_2(buffer, full_history, false)
       end
 
     if is_integer(val) do
@@ -76,7 +75,6 @@ defmodule Day8 do
           do_solve_part_2(
             instructions,
             new_buffer,
-            MapSet.put(history, new_position),
             MapSet.put(full_history, new_position),
             can_switch
           )
