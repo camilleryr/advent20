@@ -25,23 +25,18 @@ defmodule Day9 do
   end
 
   @solution_preamble 25
+  @part_1_solution 26134589
 
   def solve_part_1(input, preable_length \\ @solution_preamble) do
     input
     |> parse
-    |> do_solve_part_1(preable_length)
-  end
-
-  def do_solve_part_1([_h | t] = numbers, preamble) do
-    [to_check | preamble_set] =
-      numbers
-      |> Enum.take(preamble + 1)
-      |> Enum.reverse()
-
-    case preamble_set |> find_sums(to_check) do
-      val when is_integer(val) -> val
-      nil -> do_solve_part_1(t, preamble)
-    end
+    |> Stream.chunk_every(preable_length + 1, 1)
+    |> Stream.map(&Enum.reverse/1)
+    |> Enum.find_value(fn [to_find | chunk] ->
+      chunk
+      |> Enum.reject(& &1 >= to_find)
+      |> find_sums(to_find)
+    end)
   end
 
   def find_sums([], to_check), do: to_check
@@ -60,12 +55,10 @@ defmodule Day9 do
     end
   end
 
-  def solve_part_2(input, preable_length \\ @solution_preamble) do
-    numbers = parse(input)
-
-    invalid_number = do_solve_part_1(numbers, preable_length)
-
-    do_solve_part_2(numbers, invalid_number)
+  def solve_part_2(input, invalid_number \\ @part_1_solution) do
+    input
+    |> parse
+    |> do_solve_part_2(invalid_number)
   end
 
   def do_solve_part_2([_h | t] = numbers, invalid_number) do
