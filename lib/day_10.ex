@@ -70,7 +70,7 @@ defmodule Day10 do
     input
     |> parse()
     |> find_consecutives()
-    |> Enum.map(&to_perm/1)
+    |> Enum.map(&to_tribonacci/1)
     |> Enum.reduce(&Kernel.*/2)
   end
 
@@ -87,8 +87,10 @@ defmodule Day10 do
     return
   end
 
-  def to_perm(1), do: 1
-  def to_perm(n), do: to_perm(n - 1) + n - 2
+  def to_tribonacci(0), do: 0
+  def to_tribonacci(1), do: 1
+  def to_tribonacci(2), do: 1
+  def to_tribonacci(n), do: to_tribonacci(n - 1) + to_tribonacci(n - 2) + to_tribonacci(n - 3)
 
   def parse(input) do
     input
