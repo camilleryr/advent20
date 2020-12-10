@@ -52,13 +52,13 @@ defmodule Day10 do
   end
 
   def solve_part_1(input) do
-    {_, ones, _, threes} =
+    {_, ones, threes} =
       input
       |> parse
-      |> Enum.reduce({0, 0, 0, 0}, fn el, {prev, ones, twos, threes} = acc ->
+      |> Enum.reduce({0, 0, 0}, fn el, {prev, ones, threes} = acc ->
         case el - prev do
-          1 -> {el, ones + 1, twos, threes}
-          3 -> {el, ones, twos, threes + 1}
+          1 -> {el, ones + 1, threes}
+          3 -> {el, ones, threes + 1}
           _ -> acc
         end
       end)
@@ -70,43 +70,30 @@ defmodule Day10 do
     input
     |> parse()
     |> find_consecutives()
-    |> Enum.map(&to_fib/1)
-    |> Enum.chunk_by(& &1 == 1)
-    |> Enum.map(&find_value/1)
+    |> Enum.map(&to_perm/1)
     |> Enum.reduce(&Kernel.*/2)
   end
 
-  def find_value([1 | _]), do: 1
-  def find_value([h | t]) do
-    h + length(t)
-  end
-
-  def find_consecutives([_]), do: [1]
-
-  def find_consecutives([h | t]) do
-    {count, _} =
-      Enum.reduce_while(t, {1, h}, fn el, {count, prev} ->
+  def find_consecutives(list) do
+    {return, _} =
+      Enum.reduce(list, {[1], 0}, fn el, {[h | t] = l, prev} ->
         if el - prev == 1 do
-          {:cont, {count + 1, el}}
+          {[h + 1 | t], el}
         else
-          {:halt, {count, el}}
+          {[1 | l], el}
         end
       end)
 
-    [count | find_consecutives(t)]
+    return
   end
 
-  def to_fib(n) when n in 0..2, do: 1
-  def to_fib(n), do: to_fib(n - 1) + to_fib(n - 2)
+  def to_perm(1), do: 1
+  def to_perm(n), do: to_perm(n - 1) + n - 2
 
   def parse(input) do
-    i =
     input
     |> String.split("\n", trim: true)
     |> Enum.map(&String.to_integer/1)
     |> Enum.sort()
-
-    [0] ++ i
   end
 end
-
