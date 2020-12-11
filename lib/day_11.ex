@@ -48,9 +48,7 @@ defmodule Day11 do
   end
 
   def to_next_state(previous, rule_evaluator) do
-    Enum.reduce(previous, %{}, fn {k, v} = _el, acc ->
-      Map.put(acc, k, rule_evaluator.(v, k, previous))
-    end)
+    Map.new(previous, fn {k, v} -> {k, rule_evaluator.(v, k, previous)} end)
   end
 
   def eval_rules_pt_1(value, key, previous) do
@@ -69,14 +67,13 @@ defmodule Day11 do
     )
   end
 
-  def find_nearest_seat({dx, dy} = direction, origina_key, state, previous_key \\ nil) do
-    {x, y} = previous_key || origina_key
+  def find_nearest_seat({dx, dy} = direction, {x, y}, state) do
     key = {x + dx, y + dy}
 
-    if Map.get(state, key) == @floor do
-      find_nearest_seat(direction, origina_key, state, key)
-    else
+    if not(Map.get(state, key) == @floor) do
       key
+    else
+      find_nearest_seat(direction, key, state)
     end
   end
 
@@ -98,11 +95,9 @@ defmodule Day11 do
 
     key
     |> find_seats.()
-    |> Enum.map(&Map.get(state, &1))
-    |> Enum.filter(fn val -> val == @filled end)
-    |> length
+    |> Enum.filter(fn val -> Map.get(state, val) == @filled end)
     |> case do
-      length when length >= guard_value -> @empty
+      list when length(list) >= guard_value -> @empty
       _ -> @filled
     end
   end
