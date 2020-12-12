@@ -70,7 +70,7 @@ defmodule Day11 do
   def find_nearest_seat({dx, dy} = direction, {x, y}, state) do
     key = {x + dx, y + dy}
 
-    if not(Map.get(state, key) == @floor) do
+    if not (Map.get(state, key) == @floor) do
       key
     else
       find_nearest_seat(direction, key, state)

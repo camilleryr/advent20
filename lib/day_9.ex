@@ -25,7 +25,7 @@ defmodule Day9 do
   end
 
   @solution_preamble 25
-  @part_1_solution 26134589
+  @part_1_solution 26_134_589
 
   def solve_part_1(input, preable_length \\ @solution_preamble) do
     input
@@ -34,7 +34,7 @@ defmodule Day9 do
     |> Stream.map(&Enum.reverse/1)
     |> Enum.find_value(fn [to_find | chunk] ->
       chunk
-      |> Enum.reject(& &1 >= to_find)
+      |> Enum.reject(&(&1 >= to_find))
       |> find_sums(to_find)
     end)
   end
