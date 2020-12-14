@@ -1,3 +1,12 @@
+defmodule BasicMath do
+  def gcd(a, 0), do: a
+  def gcd(0, b), do: b
+  def gcd(a, b), do: gcd(b, rem(a, b))
+
+  def lcm(0, 0), do: 0
+  def lcm(a, b), do: a * b / gcd(a, b)
+end
+
 defmodule Day13 do
   def test_input do
     """
@@ -53,31 +62,44 @@ defmodule Day13 do
       busses
       |> Enum.filter(& &1)
       |> Enum.map(fn bus_id -> {bus_id, timestamp + (bus_id - rem(timestamp, bus_id))} end)
-      |> IO.inspect()
       |> Enum.min_by(fn {_bus_id, arrives_at} -> arrives_at end)
 
     (arrives_at - timestamp) * bus_id
   end
 
+  # based on the chinese remainder theorem
+  # https://www.youtube.com/watch?v=zIFehsBHB8o
   def solve_part_2(input) do
-    input
-    |> parse()
-    |> elem(1)
-    |> Enum.with_index()
-    |> Enum.filter(&elem(&1, 0))
-    |> Enum.reduce({0, 1}, fn {bus, index}, {t, step} ->
-      t =
-        Stream.unfold(t, fn t -> {t, t + step} end)
-        |> Stream.filter(fn t -> rem(t + index, bus) == 0 end)
-        |> Enum.at(0)
+    {_ts, busses} = parse(input)
 
-      {t, lcm(step, bus)}
+    congruences =
+      busses
+      |> Enum.with_index()
+      |> Enum.filter(fn {bus_id, _index} -> bus_id end)
+
+    big_n =
+      congruences
+      |> Enum.map(&elem(&1, 0))
+      |> Enum.reduce(&Kernel.*/2)
+
+    congruences
+    |> Enum.map(fn {mod, rem} ->
+      bi = mod - rem
+      ni = div(big_n, mod)
+      xi = find_inverse(ni - div(ni, mod) * mod, mod)
+
+      bi * ni * xi
     end)
-    |> elem(1)
+    |> Enum.sum()
+    |> rem(big_n)
   end
 
-  def lcm(a, b) do
-    div(a * b, Integer.gcd(a, b))
+  def find_inverse(a, m, x \\ 1) do
+    if rem(a * x, m) == 1 do
+      x
+    else
+      find_inverse(a, m, x + 1)
+    end
   end
 
   def parse(input) do
