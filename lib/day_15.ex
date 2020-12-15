@@ -12,17 +12,21 @@ defmodule Day15 do
 
   def solve(input, total_iterations) do
     numbers = input |> parse()
-    acc_map = numbers |> Enum.with_index(1) |> Map.new(fn {num, index} -> {num, {index, nil}} end)
+
+    numbers
+    |> Enum.with_index(1)
+    |> Enum.each(fn {num, index} -> Process.put(num, {index, nil}) end)
+
     last_number = List.last(numbers)
 
-    do_solve(last_number, acc_map, length(numbers) + 1, total_iterations)
+    do_solve(last_number, length(numbers) + 1, total_iterations)
   end
 
-  def do_solve(last_number, acc_map, iteration, total_iterations) do
+  def do_solve(last_number, iteration, total_iterations) do
     prev_iteration = iteration - 1
 
     next_number =
-      case Map.get(acc_map, last_number) do
+      case Process.get(last_number) do
         {^prev_iteration, nil} -> 0
         {^prev_iteration, used_at} -> prev_iteration - used_at
       end
@@ -30,10 +34,15 @@ defmodule Day15 do
     if iteration == total_iterations do
       next_number
     else
-      new_acc_map =
-        Map.update(acc_map, next_number, {iteration, nil}, fn {i, _} -> {iteration, i} end)
+      new_state =
+        case Process.get(next_number) do
+          nil -> {iteration, nil}
+          {i, _} -> {iteration, i}
+        end
 
-      do_solve(next_number, new_acc_map, iteration + 1, total_iterations)
+      Process.put(next_number, new_state)
+
+      do_solve(next_number, iteration + 1, total_iterations)
     end
   end
 
