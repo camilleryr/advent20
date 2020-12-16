@@ -17,12 +17,7 @@ defmodule Day16 do
   end
 
   def solve_part_1(input) do
-    {rules, _, nearby_tickets} = input |> parse()
-
-    rule =
-      rules
-      |> Enum.map(&elem(&1, 1))
-      |> Enum.reduce(&MapSet.union/2)
+    {_rules, rule, _, nearby_tickets} = parse(input)
 
     nearby_tickets
     |> Enum.flat_map(fn ticket ->
@@ -39,61 +34,59 @@ defmodule Day16 do
   end
 
   def solve_part_2(input) do
-    {rules, my_ticket, nearby_tickets} = input |> parse()
-
-    rule =
-      rules
-      |> Enum.map(&elem(&1, 1))
-      |> Enum.reduce(&MapSet.union/2)
+    {rules, rule, my_ticket, nearby_tickets} = parse(input)
 
     nearby_tickets
-    |> Enum.filter(fn ticket ->
-      Enum.all?(ticket, fn {number, _index} -> MapSet.member?(rule, number) end)
-    end)
+    |> Enum.filter(&tickets_with_invalid_numbers(&1, rule))
     |> Enum.concat([my_ticket])
-    |> Enum.reduce(%{}, fn ticket, acc ->
-      Enum.reduce(ticket, acc, fn {number, position}, acc_i ->
-        Map.update(acc_i, position, MapSet.new([number]), &MapSet.put(&1, number))
-      end)
-    end)
-    |> Map.new(fn {position, values} ->
-      possible_rulse =
-        rules
-        |> Enum.reduce([], fn {name, set}, acc ->
-          if MapSet.subset?(values, set) do
-            [name | acc]
-          else
-            acc
-          end
-        end)
+    |> Enum.reduce(%{}, &to_columnar_value_map/2)
+    |> Map.new(&match_column_to_valid_rules(&1, rules))
+    |> find_distinct_rule_per_column()
+    |> Enum.filter(&non_depature_rules/1)
+    |> Enum.map(&get_rule_values_from_ticket(my_ticket, &1))
+    |> Enum.reduce(1, &Kernel.*/2)
+  end
 
-      {position, possible_rulse}
-    end)
-    |> match_rule_to_position()
-    |> Enum.filter(fn {_pos, name} -> String.starts_with?(name, "departure") end)
-    |> Enum.reduce(1, fn {pos, _name}, acc ->
-      my_ticket
-      |> Enum.find_value(fn {number, position} ->
-        if position == pos do
-          number
-        end
-      end)
-      |> Kernel.*(acc)
+  def non_depature_rules({_position, name}), do: String.starts_with?(name, "departure")
+
+  def match_column_to_valid_rules({column, value_set}, rules),
+    do: {column, find_matching_rules(value_set, rules)}
+
+  def get_rule_values_from_ticket(my_ticket, {column_index, _name}) do
+    Enum.find_value(my_ticket, fn
+      {value, ^column_index} -> value
+      _ -> false
     end)
   end
 
-  def match_rule_to_position(start, finish \\ %{})
-  def match_rule_to_position(start, finish) when start == %{}, do: finish
+  def find_matching_rules(value_set, rules) do
+    rules
+    |> Enum.filter(fn {_name, valid_set} -> MapSet.subset?(value_set, valid_set) end)
+    |> Enum.map(fn {name, _valid_set} -> name end)
+  end
 
-  def match_rule_to_position(start, finish) do
-    {pos, [rule]} = Enum.find(start, fn {_, rules} -> length(rules) == 1 end)
+  def to_columnar_value_map(ticket, map),
+    do: Enum.reduce(ticket, map, &add_ticket_column_value_to_map/2)
 
-    new_finish = Map.put(finish, pos, rule)
+  def add_ticket_column_value_to_map({number, column}, map),
+    do: Map.update(map, column, MapSet.new([number]), &MapSet.put(&1, number))
+
+  def tickets_with_invalid_numbers(ticket, rule), do: Enum.all?(ticket, &number_in_rule(&1, rule))
+
+  def number_in_rule({number, _}, rule), do: MapSet.member?(rule, number)
+
+  def find_distinct_rule_per_column(start, finish \\ %{})
+  def find_distinct_rule_per_column(start, finish) when start == %{}, do: finish
+
+  def find_distinct_rule_per_column(start, finish) do
+    {column, [rule]} = Enum.find(start, fn {_, rules} -> length(rules) == 1 end)
+
+    new_finish = Map.put(finish, column, rule)
 
     start
-    |> Map.delete(pos)
-    |> Map.new(fn {p, rs} -> {p, Enum.reject(rs, &(&1 == rule))} end)
-    |> match_rule_to_position(new_finish)
+    |> Map.delete(column)
+    |> Map.new(fn {column, rs} -> {column, Enum.reject(rs, &(&1 == rule))} end)
+    |> find_distinct_rule_per_column(new_finish)
   end
 
   def parse(input) do
@@ -109,10 +102,15 @@ defmodule Day16 do
         {name, valid_numbers}
       end)
 
+    rule =
+      rules
+      |> Enum.map(&elem(&1, 1))
+      |> Enum.reduce(&MapSet.union/2)
+
     my_ticket = gen_ticket_numbers(my_ticket)
     nearby_tickets = Enum.map(nearby_tickets, &gen_ticket_numbers/1)
 
-    {rules, my_ticket, nearby_tickets}
+    {rules, rule, my_ticket, nearby_tickets}
   end
 
   def gen_ticket_numbers(string) do
