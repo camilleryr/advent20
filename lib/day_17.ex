@@ -5,23 +5,17 @@ defmodule Day17 do
     ..#
     ###
     """
-
-    # {0, 2}, {1, 2}, {2, 2}
-    # {0, 1}, {1, 1}, {2, 1}
-    # {0, 0}, {1, 0}, {2, 0}
   end
 
-  def solve_part_1(input) do
-    input
-    |> parse()
-    |> evolve(6)
-    |> count_active()
-  end
+  @evolutions 6
 
-  def solve_part_2(input) do
+  def solve_part_1(input), do: do_solve(input, 3)
+  def solve_part_2(input), do: do_solve(input, 4)
+
+  def do_solve(input, dimensions) do
     input
-    |> parse_2()
-    |> evolve_2(6)
+    |> parse(dimensions)
+    |> evolve()
     |> count_active()
   end
 
@@ -32,146 +26,68 @@ defmodule Day17 do
     |> Enum.count()
   end
 
-  def evolve({state, _ranges}, 0), do: state
+  def evolve({state, initial_size}, evolutions \\ 1), do: evolve(state, initial_size, evolutions)
 
-  def evolve({state, {min_x, max_x, min_y, max_y, min_z, max_z} = edges}, evolutions) do
-    for x <- (min_x - 1)..(max_x + 1),
-        y <- (min_y - 1)..(max_y + 1),
-        z <- (min_z - 1)..(max_z + 1),
-        reduce: {%{}, edges} do
-      {next_state, {nx, xx, ny, xy, nz, xz}} ->
-        point = {x, y, z}
-        cube = evolve_cube(point, state)
+  def evolve(state, initial_size, evolutions) do
+    next_state =
+      initial_size
+      |> Enum.map(fn max -> (0-evolutions)..(max+evolutions) end)
+      |> find_points()
+      |> Map.new(fn point -> {point, evolve_cube(point, state)} end)
 
-        {Map.put(next_state, point, cube),
-         {
-           mn(cube, x, nx),
-           mx(cube, x, xx),
-           mn(cube, y, ny),
-           mx(cube, y, xy),
-           mn(cube, z, nz),
-           mx(cube, z, xz)
-         }}
+    if evolutions == @evolutions do
+      next_state
+    else
+      evolve(next_state, initial_size, evolutions + 1)
     end
-    |> evolve(evolutions - 1)
   end
 
-  def evolve_cube({x, y, z} = p, state) do
-    current_state = Map.get(state, p, ".")
+  def find_points([a | [b | rest]]) do
+    new_a = for d1 <- a, d2 <- b, do: Enum.concat(List.wrap(d1), List.wrap(d2))
 
-    for xi <- (x - 1)..(x + 1),
-        yi <- (y - 1)..(y + 1),
-        zi <- (z - 1)..(z + 1),
-        {xi, yi, zi} != p do
-      Map.get(state, {xi, yi, zi}, ".")
+    if Enum.empty?(rest) do
+      new_a
+    else
+      find_points([new_a | rest])
     end
+  end
+
+  def evolve_cube(point, state) do
+    current_state = Map.get(state, point, ".")
+
+    point
+    |> Enum.map(fn d -> (d - 1)..(d + 1) end)
+    |> find_points()
+    |> Kernel.--([point])
+    |> Enum.map(fn neighbor -> Map.get(state, neighbor, ".") end)
     |> Enum.frequencies()
     |> do_evolve(current_state)
-  end
-
-  ############################################################################
-  ############################################################################
-  def evolve_2({state, _ranges}, 0), do: state
-
-  def evolve_2(
-        {state, {min_x, max_x, min_y, max_y, min_z, max_z, min_w, max_w} = edges},
-        evolutions
-      ) do
-    for x <- (min_x - 1)..(max_x + 1),
-        y <- (min_y - 1)..(max_y + 1),
-        z <- (min_z - 1)..(max_z + 1),
-        w <- (min_w - 1)..(max_w + 1),
-        reduce: {%{}, edges} do
-      {next_state, {nx, xx, ny, xy, nz, xz, nw, xw}} ->
-        point = {x, y, z, w}
-        cube = evolve_cube_2(point, state)
-
-        {Map.put(next_state, point, cube),
-         {
-           mn(cube, x, nx),
-           mx(cube, x, xx),
-           mn(cube, y, ny),
-           mx(cube, y, xy),
-           mn(cube, z, nz),
-           mx(cube, z, xz),
-           mn(cube, w, nw),
-           mx(cube, w, xw)
-         }}
-    end
-    |> evolve_2(evolutions - 1)
-  end
-
-  def evolve_cube_2({x, y, z, w} = p, state) do
-    current_state = Map.get(state, p, ".")
-
-    for xi <- (x - 1)..(x + 1),
-        yi <- (y - 1)..(y + 1),
-        zi <- (z - 1)..(z + 1),
-        wi <- (w - 1)..(w + 1),
-        {xi, yi, zi, wi} != p do
-      Map.get(state, {xi, yi, zi, wi}, ".")
-    end
-    |> Enum.frequencies()
-    |> do_evolve(current_state)
-  end
-
-  def parse_2(input) do
-    input
-    |> String.split("\n", trim: true)
-    |> Enum.reverse()
-    |> Enum.with_index()
-    |> Enum.reduce({%{}, {0, 0, 0, 0, 0, 0, 0, 0}}, fn {line, y_index}, acc ->
-      line
-      |> String.split("", trim: true)
-      |> Enum.with_index()
-      |> Enum.reduce(acc, fn {cell, x_index},
-                             {inner_acc, {min_x, max_x, min_y, max_y, 0, 0, 0, 0}} ->
-        {Map.put(inner_acc, {x_index, y_index, 0, 0}, cell),
-         {
-           mn(cell, x_index, min_x),
-           mx(cell, x_index, max_x),
-           mn(cell, y_index, min_y),
-           mx(cell, y_index, max_y),
-           0,
-           0,
-           0,
-           0
-         }}
-      end)
-    end)
   end
 
   def do_evolve(%{"#" => freq}, "#") when freq in 2..3, do: "#"
   def do_evolve(%{"#" => 3}, "."), do: "#"
   def do_evolve(_neighbor_states, _), do: "."
 
-  def parse(input) do
-    input
-    |> String.split("\n", trim: true)
-    |> Enum.reverse()
-    |> Enum.with_index()
-    |> Enum.reduce({%{}, {0, 0, 0, 0, 0, 0}}, fn {line, y_index}, acc ->
-      line
-      |> String.split("", trim: true)
+  def parse(input, dimensions) do
+    pad = Stream.cycle([0]) |> Enum.take(dimensions - 2)
+
+    initial_state =
+      input
+      |> String.split("\n", trim: true)
+      |> Enum.reverse()
       |> Enum.with_index()
-      |> Enum.reduce(acc, fn {cell, x_index}, {inner_acc, {min_x, max_x, min_y, max_y, 0, 0}} ->
-        {Map.put(inner_acc, {x_index, y_index, 0}, cell),
-         {
-           mn(cell, x_index, min_x),
-           mx(cell, x_index, max_x),
-           mn(cell, y_index, min_y),
-           mx(cell, y_index, max_y),
-           0,
-           0
-         }}
+      |> Enum.reduce(%{}, fn {line, y_index}, acc ->
+        line
+        |> String.split("", trim: true)
+        |> Enum.with_index()
+        |> Enum.reduce(acc, fn {cell, x_index}, inner_acc ->
+          Map.put(inner_acc, [x_index, y_index | pad], cell)
+        end)
       end)
-    end)
+
+    max_x = initial_state |> Map.keys() |> Enum.map(&Enum.at(&1, 0)) |> Enum.max()
+    max_y = initial_state |> Map.keys() |> Enum.map(&Enum.at(&1, 1)) |> Enum.max()
+
+    {initial_state, [max_x, max_y | pad]}
   end
-
-  def mx(c, a, b), do: edge(:max, c, a, b)
-  def mn(c, a, b), do: edge(:min, c, a, b)
-
-  def edge(:max, "#", a, b), do: max(a, b)
-  def edge(:min, "#", a, b), do: min(a, b)
-  def edge(_, _, _a, current), do: current
 end
