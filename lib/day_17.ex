@@ -11,6 +11,7 @@ defmodule Day17 do
 
   def solve_part_1(input), do: do_solve(input, 3)
   def solve_part_2(input), do: do_solve(input, 4)
+  def solve_part_3(input), do: do_solve(input, 5)
 
   def do_solve(input, dimensions) do
     input
