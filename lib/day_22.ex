@@ -39,23 +39,23 @@ defmodule Day22 do
   def combat([player_1, player_2]), do: combat(player_1, player_2)
 
   def combat(player_1, player_2) do
-    {card_1, player_1} = :queue.out(player_1)
-    {card_2, player_2} = :queue.out(player_2)
+    {card_1, player_1} = get_value(player_1)
+    {card_2, player_2} = get_value(player_2)
 
     case {card_1, card_2} do
-      {{:value, card}, :empty} ->
+      {card, :empty} ->
         add_to_front(player_1, card)
 
-      {:empty, {:value, card}} ->
+      {:empty, card} ->
         add_to_front(player_2, card)
 
-      {{:value, card_1}, {:value, card_2}} when card_1 > card_2 ->
+      {card_1, card_2} when card_1 > card_2 ->
         player_1
         |> add_to_back(card_1)
         |> add_to_back(card_2)
         |> combat(player_2)
 
-      {{:value, card_1}, {:value, card_2}} when card_1 < card_2 ->
+      {card_1, card_2} when card_1 < card_2 ->
         player_2
         |> add_to_back(card_2)
         |> add_to_back(card_1)
@@ -63,73 +63,68 @@ defmodule Day22 do
     end
   end
 
-  def recursive_combat(player_1, player_2, history \\ %{}, game_number \\ 1) do
-    history = unique_state(player_1, player_2, game_number, history)
+  def recursive_combat(player_1, player_2, history \\ {MapSet.new(), MapSet.new()})
 
-    if is_nil(history) do
-      {:player_1, player_1}
-    else
-      {card_1, player_1} = :queue.out(player_1)
-      {card_2, player_2} = :queue.out(player_2)
+  def recursive_combat(player_1, _player_2, nil), do: {:player_1, player_1}
 
-      player_1_remaining = :queue.len(player_1)
-      player_2_remaining = :queue.len(player_2)
+  def recursive_combat(player_1_full, player_2_full, history) do
+    {card_1, player_1} = get_value(player_1_full)
+    {card_2, player_2} = get_value(player_2_full)
 
-      case {card_1, card_2} do
-        {{:value, card}, :empty} ->
-          {:player_1, add_to_front(player_1, card)}
+    next_history = unique_state(player_1_full, player_2_full, history)
 
-        {:empty, {:value, card}} ->
-          {:player_2, add_to_front(player_2, card)}
+    if card_1 <= :queue.len(player_1) and card_2 <= :queue.len(player_2) do
+      case recursive_combat(sub_deck(player_1, card_1), sub_deck(player_2, card_2)) do
+        {:player_1, _deck} ->
+          player_1 = add_cards(player_1, card_1, card_2)
+          recursive_combat(player_1, player_2, next_history)
 
-        {{:value, card_1}, {:value, card_2}}
-        when card_1 <= player_1_remaining and card_2 <= player_2_remaining ->
-          {sub_deck_p1, _} = :queue.split(card_1, player_1)
-          {sub_deck_p2, _} = :queue.split(card_2, player_2)
-
-          case recursive_combat(sub_deck_p1, sub_deck_p2, history, game_number + 1) do
-            {:player_1, _deck} ->
-              player_1
-              |> add_to_back(card_1)
-              |> add_to_back(card_2)
-              |> recursive_combat(player_2, history, game_number)
-
-            {:player_2, _deck} ->
-              player_2
-              |> add_to_back(card_2)
-              |> add_to_back(card_1)
-              |> (&recursive_combat(player_1, &1, history, game_number)).()
-          end
-
-        {{:value, card_1}, {:value, card_2}} when card_1 > card_2 ->
-          player_1
-          |> add_to_back(card_1)
-          |> add_to_back(card_2)
-          |> recursive_combat(player_2, history, game_number)
-
-        {{:value, card_1}, {:value, card_2}} when card_1 < card_2 ->
-          player_2
-          |> add_to_back(card_2)
-          |> add_to_back(card_1)
-          |> (&recursive_combat(player_1, &1, history, game_number)).()
+        {:player_2, _deck} ->
+          player_2 = add_cards(player_2, card_2, card_1)
+          recursive_combat(player_1, player_2, next_history)
       end
+    else
+      do_combat(card_1, card_2, player_1, player_2, next_history)
     end
   end
 
-  def unique_state(player_1, player_2, game_number, history) do
-    {p1_state, p2_state} = Map.get(history, game_number, {MapSet.new(), MapSet.new()})
+  def do_combat(card_1, :empty, player_1, _player_2, _history) do
+    {:player_1, add_to_front(player_1, card_1)}
+  end
 
+  def do_combat(:empty, card_2, _player_1, player_2, _history) do
+    {:player_2, add_to_front(player_2, card_2)}
+  end
+
+  def do_combat(card_1, card_2, player_1, player_2, history) when card_1 > card_2 do
+    player_1 = add_cards(player_1, card_1, card_2)
+    recursive_combat(player_1, player_2, history)
+  end
+
+  def do_combat(card_1, card_2, player_1, player_2, history) when card_1 < card_2 do
+    player_2 = add_cards(player_2, card_2, card_1)
+    recursive_combat(player_1, player_2, history)
+  end
+
+  def add_cards(q, e1, e2), do: q |> add_to_back(e1) |> add_to_back(e2)
+
+  def sub_deck(queue, n), do: n |> :queue.split(queue) |> elem(0)
+
+  def unique_state(player_1, player_2, {p1_state, p2_state}) do
     unless MapSet.member?(p1_state, player_1) or MapSet.member?(p2_state, player_2) do
-      Map.put(
-        history,
-        game_number,
-        {MapSet.put(p1_state, player_1), MapSet.put(p2_state, player_2)}
-      )
+      {MapSet.put(p1_state, player_1), MapSet.put(p2_state, player_2)}
     end
   end
 
   def add_to_back(queue, item), do: :queue.in(item, queue)
   def add_to_front(queue, item), do: :queue.in_r(item, queue)
+
+  def get_value(queue) do
+    case :queue.out(queue) do
+      {{:value, value}, queue} -> {value, queue}
+      _ -> {:empty, queue}
+    end
+  end
 
   def parse(input) do
     input
