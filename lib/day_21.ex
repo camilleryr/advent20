@@ -28,7 +28,6 @@ defmodule Day21 do
     |> Enum.join(",")
   end
 
-
   def translate(food_list) do
     food_list
     |> Enum.reduce(%{}, fn {ingredients, allergens}, allergen_sets ->
