@@ -29,7 +29,6 @@ defmodule Day22 do
     input
     |> parse
     |> game.()
-    |> :queue.to_list()
     |> Enum.reverse()
     |> Enum.with_index(1)
     |> Enum.map(fn {card, index} -> card * index end)
@@ -73,7 +72,7 @@ defmodule Day22 do
 
     next_history = unique_state(player_1_full, player_2_full, history)
 
-    if card_1 <= :queue.len(player_1) and card_2 <= :queue.len(player_2) do
+    if card_1 <= length(player_1) and card_2 <= length(player_2) do
       case recursive_combat(sub_deck(player_1, card_1), sub_deck(player_2, card_2)) do
         {:player_1, _deck} ->
           player_1 = add_cards(player_1, card_1, card_2)
@@ -108,7 +107,7 @@ defmodule Day22 do
 
   def add_cards(q, e1, e2), do: q |> add_to_back(e1) |> add_to_back(e2)
 
-  def sub_deck(queue, n), do: n |> :queue.split(queue) |> elem(0)
+  def sub_deck(list, n), do: Enum.take(list, n)
 
   def unique_state(player_1, player_2, {p1_state, p2_state}) do
     unless MapSet.member?(p1_state, player_1) or MapSet.member?(p2_state, player_2) do
@@ -116,13 +115,13 @@ defmodule Day22 do
     end
   end
 
-  def add_to_back(queue, item), do: :queue.in(item, queue)
-  def add_to_front(queue, item), do: :queue.in_r(item, queue)
+  def add_to_back(list, item), do: Enum.concat(list, [item])
+  def add_to_front(list, item), do: [item | list]
 
-  def get_value(queue) do
-    case :queue.out(queue) do
-      {{:value, value}, queue} -> {value, queue}
-      _ -> {:empty, queue}
+  def get_value(list) do
+    case list do
+      [value | rest] -> {value, rest}
+      _ -> {:empty, []}
     end
   end
 
@@ -134,7 +133,6 @@ defmodule Day22 do
       |> String.split("\n", trim: true)
       |> Enum.drop(1)
       |> Enum.map(&String.to_integer/1)
-      |> :queue.from_list()
     end)
   end
 end
