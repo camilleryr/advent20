@@ -23,133 +23,44 @@ defmodule Day23 do
     |> Enum.concat(10..1_000_000)
     |> crab_shuffle(10_000_000)
 
-    [{1, index}] = :ets.lookup(__MODULE__, 1)
+    [{1, n1}] = :ets.lookup(__MODULE__, 1)
+    [{^n1, n2}] = :ets.lookup(__MODULE__, n1)
 
-    :ets.select(__MODULE__, [
-      {{:_, :"$1"}, [{:andalso, {:>=, :"$1", index + 1}, {:"=<", :"$1", index + 2}}], [:"$_"]}
-    ])
-    |> Enum.reduce(1, fn {num, _dix}, acc -> acc * num end)
+    n1 * n2
   end
 
-  def crab_shuffle(enum, generations) when is_list(enum) do
+  def crab_shuffle([h | t] = enum, generations) when is_list(enum) do
     __MODULE__
     |> :ets.new([:public, :named_table, :set])
-    |> :ets.insert(enum |> Enum.with_index(1))
+    |> :ets.insert(Enum.zip(enum, t ++ [h]))
 
-    do_crab_shuffle(1, generations, length(enum))
+    do_crab_shuffle(h, generations, length(enum))
   end
 
   def do_crab_shuffle(_, 0, _ls), do: :ok
 
-  def do_crab_shuffle(current_index, generations, list_size) do
-    :ets.select(__MODULE__, [{:"$1", [], [:"$_"]}])
-    |> Enum.sort_by(&elem(&1, 1))
-    |> Enum.map(&elem(&1, 0))
+  def do_crab_shuffle(current_cup, generations, size) do
+    [{^current_cup, n1}] = :ets.lookup(__MODULE__, current_cup)
+    [{^n1, n2}] = :ets.lookup(__MODULE__, n1)
+    [{^n2, n3}] = :ets.lookup(__MODULE__, n2)
+    [{^n3, next_cup}] = :ets.lookup(__MODULE__, n3)
 
-    ms = to_ms(current_index, 4, list_size)
+    destination = find_destination(current_cup - 1, [n1, n2, n3], size)
+    [{^destination, after_destination}] = :ets.lookup(__MODULE__, destination)
 
-    [{current_num, ^current_index} | removed] =
-      __MODULE__
-      |> :ets.select(ms)
-      |> Enum.sort_by(fn {_n, idx} ->
-        if idx >= current_index do
-          idx
-        else
-          list_size + idx
-        end
-      end)
+    :ets.insert(__MODULE__, [
+      {current_cup, next_cup},
+      {destination, n1},
+      {n3, after_destination}
+    ])
 
-    destination =
-      (current_num - 1)
-      |> find_destination(removed, list_size)
-
-    [{^destination, destination_index}] = :ets.lookup(__MODULE__, destination)
-
-    # (removed d+1-3), ((dest + 1 -> curret) + 3)
-    # ((curret + 4 -> destination) - 3), (removed d+1-3)
-    current_index
-    |> find_distances(destination_index, list_size)
-    |> case do
-      {l_dist, r_dist} when l_dist >= r_dist - 4 ->
-        to_insert =
-          :ets.select(
-            __MODULE__,
-            to_ms(next(current_index + 3, list_size), r_dist - 3, list_size)
-          )
-          |> Enum.sort_by(fn {_n, idx} ->
-            if idx >= current_index do
-              idx
-            else
-              list_size + idx
-            end
-          end)
-          |> Enum.concat(removed)
-          |> Enum.with_index()
-          |> Enum.map(fn {{number, _old_idx}, chunk_index} ->
-            {number, next(current_index + chunk_index, list_size)}
-          end)
-
-        :ets.insert(__MODULE__, to_insert)
-
-      {l_dist, _r_dist} ->
-        to_insert =
-          :ets.select(__MODULE__, to_ms(next(destination_index, list_size), l_dist, list_size))
-          |> Enum.sort_by(fn {_n, idx} ->
-            if idx >= destination_index do
-              idx
-            else
-              list_size + idx
-            end
-          end)
-          |> (&Enum.concat(removed, &1)).()
-          |> Enum.with_index()
-          |> Enum.map(fn {{number, _old_idx}, chunk_index} ->
-            {number, next(destination_index + chunk_index, list_size)}
-          end)
-
-        :ets.insert(__MODULE__, to_insert)
-    end
-
-    [{^current_num, current_num_new_index}] = :ets.lookup(__MODULE__, current_num)
-
-    current_num_new_index
-    |> next(list_size)
-    |> do_crab_shuffle(generations - 1, list_size)
-  end
-
-  def next(i, list_size) do
-    if i > list_size - 1 do
-      next(i - list_size, list_size)
-    else
-      i + 1
-    end
-  end
-
-  def find_distances(current_index, destination_index, list_size)
-      when current_index < destination_index do
-    {list_size - destination_index + current_index, destination_index - current_index}
-  end
-
-  def find_distances(current_index, destination_index, list_size) do
-    {current_index - destination_index, list_size - current_index + destination_index}
-  end
-
-  def to_ms(index, n, list_size) when is_integer(index) and index <= list_size - (n - 1) do
-    [{{:_, :"$1"}, [{:andalso, {:>=, :"$1", index}, {:"=<", :"$1", index + (n - 1)}}], [:"$_"]}]
-  end
-
-  def to_ms(index, n, list_size) when is_integer(index) do
-    [
-      {{:_, :"$1"},
-       [{:orelse, {:>=, :"$1", index}, {:"=<", :"$1", next(index + (n - 2), list_size)}}],
-       [:"$_"]}
-    ]
+    do_crab_shuffle(next_cup, generations - 1, size)
   end
 
   def find_destination(0, removed, list_size), do: find_destination(list_size, removed, list_size)
 
-  def find_destination(dest, [{x1, _}, {x2, _}, {x3, _}] = removed, list_size) do
-    if dest != x1 and dest != x2 and dest != x3 do
+  def find_destination(dest, [n1, n2, n3] = removed, list_size) do
+    if dest != n1 and dest != n2 and dest != n3 do
       dest
     else
       find_destination(dest - 1, removed, list_size)
